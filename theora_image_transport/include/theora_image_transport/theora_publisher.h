@@ -55,6 +55,12 @@ public:
   // Return the system unique string representing the theora transport type
   virtual std::string getTransportName() const { return "theora"; }
 
+  mutable rclcpp::Node::SharedPtr resetting_node;
+  mutable rclcpp::Subscription<std_msgs::msg::Header>::SharedPtr subscription;
+  mutable bool first_run = true;
+  mutable bool reset_context = false;
+  mutable std::thread commandThread;
+
 protected:
   virtual void advertiseImpl(
     rclcpp::Node* node,

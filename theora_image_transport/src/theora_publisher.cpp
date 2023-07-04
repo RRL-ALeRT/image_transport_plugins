@@ -34,6 +34,7 @@
 
 #include "theora_image_transport/theora_publisher.h"
 
+#include <rclcpp/rclcpp.hpp>
 #include <rclcpp/logging.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 #include <std_msgs/msg/header.hpp>
@@ -69,6 +70,7 @@ TheoraPublisher::TheoraPublisher():
 TheoraPublisher::~TheoraPublisher()
 {
   th_info_clear(&encoder_setup_);
+  commandThread.join();
 }
 
 void TheoraPublisher::advertiseImpl(
@@ -153,6 +155,45 @@ static void cvToTheoraPlane(cv::Mat& mat, th_img_plane& plane)
 void TheoraPublisher::publish(const sensor_msgs::msg::Image& message,
                               const PublishFn& publish_fn) const
 {
+  // num_subscribers_ = 0;
+
+      // RCLCPP_INFO(node->get_logger(), "hello1");
+
+  if (first_run)
+  {
+    std::string filteredNodeName = getTopic() + "/resetting_node"; // Initial node name with symbols
+
+    // Filter out symbols and ensure a valid node name
+    for (char& c : filteredNodeName) {
+      if (!std::isalnum(c) && c != '_') {
+        c = '_'; // Replace non-alphanumeric characters with underscores
+      }
+    }
+
+    resetting_node = rclcpp::Node::make_shared(filteredNodeName);
+
+    subscription = resetting_node->create_subscription<std_msgs::msg::Header>(
+      getTopic() + "_reset",
+      1,
+      [&](const std_msgs::msg::Header::SharedPtr msg) {
+        reset_context = true;
+      });
+
+    // Start a new thread to execute the command
+    commandThread = std::thread([&]() {
+      rclcpp::spin(resetting_node);
+    });
+
+    first_run = false;
+  }
+
+  if (reset_context)
+  {
+    encoding_context_.reset();
+    rclcpp::Rate(1).sleep();
+    reset_context = false;
+  }
+
   if (!ensureEncodingContext(message, publish_fn))
     return;
   //return;
