@@ -39,6 +39,20 @@
 #include <theora/theoraenc.h>
 #include <theora/theoradec.h>
 
+#include <std_srvs/srv/empty.hpp>
+
+namespace reset_context_controller {
+
+class ResetContextClientNode : public rclcpp::Node
+{
+public:
+  ResetContextClientNode();
+
+  void callResetContextService(const std::string& service_topic);
+};
+
+} //namespace reset_context_controller
+
 namespace theora_image_transport {
 
 class TheoraSubscriber : public image_transport::SimpleSubscriberPlugin<theora_image_transport::msg::Packet>
@@ -71,6 +85,7 @@ protected:
   int pplevel_; // Post-processing level
   bool received_header_;
   bool received_keyframe_;
+  bool wait_for_header;
   th_dec_ctx* decoding_context_;
   th_info header_info_;
   th_comment header_comment_;
@@ -78,6 +93,8 @@ protected:
   sensor_msgs::msg::Image::SharedPtr latest_image_;
 
   rclcpp::Logger logger_;
+
+  std::shared_ptr<reset_context_controller::ResetContextClientNode> reset_context_client_node_;
 };
 
 } //namespace theora_image_transport

@@ -37,7 +37,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/logging.hpp>
 #include <sensor_msgs/image_encodings.hpp>
-#include <std_msgs/msg/header.hpp>
+#include <std_srvs/srv/empty.hpp>
 
 #include <cstdio> //for memcpy
 #include <vector>
@@ -70,7 +70,7 @@ TheoraPublisher::TheoraPublisher():
 TheoraPublisher::~TheoraPublisher()
 {
   th_info_clear(&encoder_setup_);
-  commandThread.join();
+  resetting_node.reset();
 }
 
 void TheoraPublisher::advertiseImpl(
@@ -155,10 +155,6 @@ static void cvToTheoraPlane(cv::Mat& mat, th_img_plane& plane)
 void TheoraPublisher::publish(const sensor_msgs::msg::Image& message,
                               const PublishFn& publish_fn) const
 {
-  // num_subscribers_ = 0;
-
-      // RCLCPP_INFO(node->get_logger(), "hello1");
-
   if (first_run)
   {
     std::string filteredNodeName = getTopic() + "/resetting_node"; // Initial node name with symbols
@@ -172,26 +168,28 @@ void TheoraPublisher::publish(const sensor_msgs::msg::Image& message,
 
     resetting_node = rclcpp::Node::make_shared(filteredNodeName);
 
-    subscription = resetting_node->create_subscription<std_msgs::msg::Header>(
-      getTopic() + "_reset",
-      1,
-      [&](const std_msgs::msg::Header::SharedPtr msg) {
+    // Create the service to handle requests for resetting the context
+    reset_service = resetting_node->create_service<std_srvs::srv::Empty>(
+      getTopic() + "_reset_context",
+      [&](const std::shared_ptr<std_srvs::srv::Empty::Request> request,
+        std::shared_ptr<std_srvs::srv::Empty::Response> response) {
+        // Set the reset_context to true
+        (void)request;
+        (void)response;
         reset_context = true;
-      });
-
-    // Start a new thread to execute the command
-    commandThread = std::thread([&]() {
-      rclcpp::spin(resetting_node);
-    });
-
+      }
+    );
     first_run = false;
   }
+
+  rclcpp::spin_some(resetting_node);
 
   if (reset_context)
   {
     encoding_context_.reset();
-    rclcpp::Rate(1).sleep();
     reset_context = false;
+    rclcpp::Rate(1).sleep();
+    return;
   }
 
   if (!ensureEncodingContext(message, publish_fn))

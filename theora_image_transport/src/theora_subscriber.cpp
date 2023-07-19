@@ -43,6 +43,31 @@
 
 using namespace std;
 
+#include <rclcpp/rclcpp.hpp>
+#include <std_srvs/srv/empty.hpp>
+
+namespace reset_context_controller {
+
+ResetContextClientNode::ResetContextClientNode() : Node("reset_context_client_node") {}
+
+void ResetContextClientNode::callResetContextService(const std::string& service_topic)
+{
+  auto client = create_client<std_srvs::srv::Empty>(service_topic);
+
+  if (!client->wait_for_service(std::chrono::seconds(1))) {
+    RCLCPP_ERROR(get_logger(), "Service not available.");
+    return;
+  }
+  auto request = std::make_shared<std_srvs::srv::Empty::Request>();
+
+  auto result = client->async_send_request(request);
+  RCLCPP_ERROR(get_logger(), "Resetted theora stream.");
+  rclcpp::Rate(2).sleep();
+  return;
+}
+
+} //namespace reset_context_controller
+
 namespace theora_image_transport {
 
 TheoraSubscriber::TheoraSubscriber()
@@ -55,6 +80,9 @@ TheoraSubscriber::TheoraSubscriber()
 {
   th_info_init(&header_info_);
   th_comment_init(&header_comment_);
+
+  // Instantiate the ResetContextClientNode
+  reset_context_client_node_ = std::make_shared<reset_context_controller::ResetContextClientNode>();
 }
 
 TheoraSubscriber::~TheoraSubscriber()
@@ -136,6 +164,12 @@ void TheoraSubscriber::internalCallback(const theora_image_transport::msg::Packe
   msgToOggPacket(*message, oggpacket);
   std::unique_ptr<unsigned char[]> packet_guard(oggpacket.packet); // Make sure packet memory gets deleted
 
+  if (wait_for_header && oggpacket.b_o_s != 1)
+  {
+    return;
+  }
+  wait_for_header = false;
+
   // Beginning of logical stream flag means we're getting new headers
   if (oggpacket.b_o_s == 1) {
     // Clear all state, everything we knew is wrong
@@ -179,6 +213,9 @@ void TheoraSubscriber::internalCallback(const theora_image_transport::msg::Packe
         return;
       case TH_ENOTFORMAT:
         RCLCPP_WARN(logger_, "[theora] Packet was not a Theora header");
+        // Call the service client to update reset_context variable
+        wait_for_header = true;
+        reset_context_client_node_->callResetContextService(getTopic() + "_reset_context");
         return;
       default:
         // If rval > 0, we successfully received a header packet.

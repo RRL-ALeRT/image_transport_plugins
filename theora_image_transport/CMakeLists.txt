@@ -20,6 +20,7 @@ find_package(rcutils REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 find_package(OpenCV REQUIRED imgproc)
 find_package(PkgConfig)
@@ -64,6 +65,7 @@ target_link_libraries(${LIBRARY_NAME}
   ${PC_THEORADEC_LIBRARIES}
   "${cpp_typesupport_target}"
   ${sensor_msgs_TARGETS}
+  ${std_srvs_TARGETS}
   cv_bridge::cv_bridge
   image_transport::image_transport
   pluginlib::pluginlib
@@ -97,6 +99,7 @@ ament_export_dependencies(
   rcutils
   sensor_msgs
   std_msgs
+  std_srvs
 )
 
 install(TARGETS ${LIBRARY_NAME} EXPORT export_${LIBRARY_NAME}

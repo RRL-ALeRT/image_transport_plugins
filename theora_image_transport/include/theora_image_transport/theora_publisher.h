@@ -37,7 +37,7 @@
 
 #include <image_transport/simple_publisher_plugin.hpp>
 #include <cv_bridge/cv_bridge.h>
-#include <std_msgs/msg/header.hpp>
+#include <std_srvs/srv/empty.hpp>
 #include <theora_image_transport/msg/packet.hpp>
 
 #include <theora/codec.h>
@@ -54,12 +54,6 @@ public:
 
   // Return the system unique string representing the theora transport type
   virtual std::string getTransportName() const { return "theora"; }
-
-  mutable rclcpp::Node::SharedPtr resetting_node;
-  mutable rclcpp::Subscription<std_msgs::msg::Header>::SharedPtr subscription;
-  mutable bool first_run = true;
-  mutable bool reset_context = false;
-  mutable std::thread commandThread;
 
 protected:
   virtual void advertiseImpl(
@@ -91,6 +85,13 @@ protected:
   mutable std::vector<theora_image_transport::msg::Packet> stream_header_;
 
   rclcpp::Logger logger_;
+
+  mutable rclcpp::Node::SharedPtr resetting_node;
+  mutable rclcpp::Service<std_srvs::srv::Empty>::SharedPtr reset_service;
+  
+  mutable bool first_run = true;
+  mutable bool reset_context = false;
+  mutable std::thread commandThread;
 };
 
 } //namespace compressed_image_transport
